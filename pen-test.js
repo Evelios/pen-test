@@ -1,37 +1,32 @@
 import { PaperSize, Orientation } from 'penplot';
 import { polylinesToSVG } from 'penplot/util/svg';
-import { clipPolylinesToBox } from 'penplot/util/geom';
+import array from 'new-array';
+import stroke from 'penplot-stroke';
 
 export const orientation = Orientation.LANDSCAPE;
 export const dimensions = PaperSize.LETTER;
 
 export default function createPlot (context, dimensions) {
+  // Dimensions
   const [ width, height ] = dimensions;
-  let lines = [];
+  const margin_percent    = 0.2;
+  // Line Properties
+  const min_width         = 0.01;
+  const max_width         = 0.07;
+  const width_step        = 0.01;
+  const line_width        = max_width * 8;
 
-  // Draw some circles expanding outward
-  const steps = 5;
-  const count = 20;
-  const spacing = 1;
-  const radius = 2;
-  for (let j = 0; j < count; j++) {
-    const r = radius + j * spacing;
-    const circle = [];
-    for (let i = 0; i < steps; i++) {
-      const t = i / Math.max(1, steps - 1);
-      const angle = Math.PI * 2 * t;
-      circle.push([
-        width / 2 + Math.cos(angle) * r,
-        height / 2 + Math.sin(angle) * r
-      ]);
-    }
-    lines.push(circle);
-  }
+  const test_sites = linspace(min_width, max_width, width_step);
+  const spacing = (width - (width * 2*margin_percent)) / (test_sites.length - 1);
 
-  // Clip all the lines to a margin
-  const margin = 1.5;
-  const box = [ margin, margin, width - margin, height - margin ];
-  lines = clipPolylinesToBox(lines, box);
+  const lines = test_sites.map((stroke_width, i) => {
+    console.log(stroke_width);
+    console.log(line_width);
+    const x  = width * margin_percent + i * spacing;
+    const y1 = height - (height * margin_percent);
+    const y2 = height * margin_percent
+    return stroke([ [x, y1], [x, y2] ], line_width, stroke_width);
+  }).flat(1);
 
   return {
     draw,
@@ -41,9 +36,12 @@ export default function createPlot (context, dimensions) {
     clear: true
   };
 
+  // ---- Main Functions -------------------------------------------------------
+
   function draw () {
     lines.forEach(points => {
       context.beginPath();
+      context.lineWidth = min_width;
       points.forEach(p => context.lineTo(p[0], p[1]));
       context.stroke();
     });
@@ -51,7 +49,15 @@ export default function createPlot (context, dimensions) {
 
   function print () {
     return polylinesToSVG(lines, {
-      dimensions
+      dimensions,
+      lineWidth : min_width
     });
+  }
+
+  // ---- Helper Functions ------------------------------------------------------
+
+  function linspace(start, stop, spacing) {
+    const n = Math.round((stop - start) / spacing);
+    return array(n).map((_, i) => start + i*spacing );
   }
 }
